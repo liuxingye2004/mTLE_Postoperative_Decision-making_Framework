@@ -1,19 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Frontal Lobe Epilepsy Postoperative Recurrence Risk Stratification - Complete Validation (Modified Version with New Features)
-
-Features:
-1. Build Cox regression model using training cohort
-2. Determine optimal cutoffs using X-tile
-3. Evaluate model performance on validation cohort
-4. Display key metrics: HR, C-index, Brier Score, Kaplan-Meier curves
-5. Stratify validation cohort by risk
-6. KM curves: No shading, X-axis in 24-month increments, patient count table below
-7. Calculate Hazard Ratios (HR) between risk groups
-8. Save Log-rank test and HR results to summary file
-9. Include additional features: R0 Resection, Abnormal Post-EEG, Seizure in 6m
-"""
 
 import os
 import warnings
@@ -35,7 +19,7 @@ from datetime import datetime
 
 warnings.filterwarnings('ignore')
 
-# 设置字体
+
 def setup_fonts():
     import matplotlib.font_manager as fm
     font_candidates = ['SimHei', 'WenQuanYi Micro Hei', 'Noto Sans CJK SC', 'DejaVu Sans']
@@ -54,7 +38,7 @@ def setup_fonts():
 
 setup_fonts()
 
-# 数据预处理模块
+
 def load_and_preprocess_data(filepath, handle_missing='impute'):
     if filepath.endswith('.xlsx') or filepath.endswith('.xls'):
         df = pd.read_excel(filepath)
@@ -63,28 +47,28 @@ def load_and_preprocess_data(filepath, handle_missing='impute'):
     
     df.columns = df.columns.str.strip()
     print("=" * 80)
-    print(f"数据加载: {os.path.basename(filepath)}")
+    print(f": {os.path.basename(filepath)}")
     print("=" * 80)
-    print(f"原始数据维度: {df.shape}")
+    print(f": {df.shape}")
     
     print("\n缺失值诊断:")
     print("-" * 50)
     missing_info = df.isnull().sum()
     missing_percent = (df.isnull().sum() / len(df) * 100).round(2)
-    missing_df = pd.DataFrame({'缺失数量': missing_info, '缺失百分比': missing_percent})
-    print(missing_df[missing_df['缺失数量'] > 0])
+    missing_df = pd.DataFrame({'missing count': missing_info, 'missing persentage': missing_percent})
+    print(missing_df[missing_df['missing conut'] > 0])
     
     total_missing_rows = df.isnull().any(axis=1).sum()
-    print(f"\n至少有一个缺失值的患者: {total_missing_rows} 例 ({total_missing_rows/len(df)*100:.1f}%)")
+    print(f"\n: {total_missing_rows}  ({total_missing_rows/len(df)*100:.1f}%)")
     
     feature_cols = ['onset age', 'duration', 'frequency', 'Interictal EEG', 'LYMPH', 
                    'ALT', 'MRI', 'PETSUVmax', 'AI', 'R0 Resection', 'Abnormal Post-EEG', 'Seizure in 6m']
     
     if handle_missing == 'drop':
         df_clean = df.dropna()
-        print(f"\n删除缺失值后: {len(df_clean)} 例")
+        print(f"\n: {len(df_clean)} ")
     elif handle_missing == 'impute':
-        print(f"\n使用中位数填充缺失值...")
+        print(f"\n...")
         df_clean = df.copy()
         imputable_cols = [c for c in feature_cols if c in df_clean.columns 
                          and df_clean[c].dtype.kind in 'fc']
@@ -95,27 +79,27 @@ def load_and_preprocess_data(filepath, handle_missing='impute'):
                            and c not in imputable_cols]
         for col in categorical_cols:
             df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
-        print(f"填充后样本量: {len(df_clean)} 例")
+        print(f": {len(df_clean)} 例")
     else:
         df_clean = df.copy()
     
     if 'FUFA' in df_clean.columns:
         recurrence_rate = df_clean['FUFA'].mean()
-        print(f"\n复发情况: {df_clean['FUFA'].sum()}/{len(df_clean)} ({recurrence_rate*100:.1f}%)")
+        print(f"\n: {df_clean['FUFA'].sum()}/{len(df_clean)} ({recurrence_rate*100:.1f}%)")
     
     if 'time' in df_clean.columns:
-        print(f"随访时间统计: 中位数={df_clean['time'].median():.1f}月, "
-              f"范围=[{df_clean['time'].min():.1f}, {df_clean['time'].max():.1f}]月")
+        print(f": ={df_clean['time'].median():.1f}月, "
+              f"=[{df_clean['time'].min():.1f}, {df_clean['time'].max():.1f}]月")
         invalid_time = (df_clean['time'] <= 0).sum()
         if invalid_time > 0:
-            print(f"⚠ 排除 {invalid_time} 例随访时间无效的患者")
+            print(f"⚠  {invalid_time} ")
             df_clean = df_clean[df_clean['time'] > 0]
     
     df_clean = df_clean.reset_index(drop=True)
-    print(f"最终有效样本量: {len(df_clean)} 例")
+    print(f": {len(df_clean)} 例")
     return df_clean, len(df)
 
-# Cox比例风险模型类
+
 class RiskPredictionModel:
     def __init__(self):
         self.coefficients = {}
@@ -147,9 +131,9 @@ class RiskPredictionModel:
         self.median_fu = df_model[duration_col].median()
         
         print("\n" + "=" * 80)
-        print("Cox比例风险模型结果 (建模队列)")
+        print("Cox")
         print("=" * 80)
-        print(f"中位随访时间: {self.median_fu:.1f} 个月")
+        print(f": {self.median_fu:.1f} ")
         
         self.scaler = StandardScaler()
         X_scaled = self.scaler.fit_transform(df_model[feature_cols])
@@ -169,9 +153,9 @@ class RiskPredictionModel:
         print(f"Log-Likelihood: {self.log_likelihood_:.2f}")
         print(f"AIC: {self.AIC_partial_:.2f}")
         
-        print("\n风险因素重要性 (风险比 HR):")
+        print("\n:")
         print("-" * 80)
-        print(f"{'特征':<25} {'HR':<10} {'系数':<10} {'P值':<15} {'显著性'}")
+        print(f"{'Variables':<25} {'HR':<10} {'Coefficients':<10} {'P Value':<15} {'Significance'}")
         print("-" * 80)
         sorted_coef = sorted(self.coefficients.items(), 
                             key=lambda x: abs(x[1]), reverse=True)
@@ -206,16 +190,16 @@ class RiskPredictionModel:
     def get_partial_hazard(self, df):
         return np.exp(self.get_linear_predictor(df))
 
-# X-tile优化模块
+
 def x_tile_optimization(df, risk_scores, outcome_col='FUFA', 
                        min_group_size=0.10, min_events_per_group=3):
     print("\n" + "=" * 80)
-    print("X-tile优化分析 (基于建模队列)")
+    print("X-tile")
     print("=" * 80)
     
     events = df[outcome_col].values
-    assert len(risk_scores) == len(df), f"风险评分数量与患者数量不匹配!"
-    print(f"输入患者数: {len(df)}")
+    assert len(risk_scores) == len(df), f"!"
+    print(f": {len(df)}")
     
     q5, q95 = np.percentile(risk_scores, [5, 95])
     candidate_cutoffs = np.linspace(q5, q95, 50)
@@ -224,7 +208,7 @@ def x_tile_optimization(df, risk_scores, outcome_col='FUFA',
     best_diff = -1
     best_cutoffs = None
     
-    print("\n扫描最优截断值...")
+    print("\n...")
     
     for i, cutoff1 in enumerate(candidate_cutoffs):
         for cutoff2 in candidate_cutoffs[i+1:]:
@@ -276,21 +260,21 @@ def x_tile_optimization(df, risk_scores, outcome_col='FUFA',
                 best_cutoffs = (cutoff1, cutoff2)
     
     if best_cutoffs is None:
-        print("标准较严，放宽条件重新搜索...")
+        print("...")
         return x_tile_optimization(df, risk_scores, outcome_col, 
                                    min_group_size=0.05, min_events_per_group=2)
     
     results_df = pd.DataFrame(results)
     
-    print("\n✓ 最优截断值:")
-    print(f"  低危 ≤ {best_cutoffs[0]:.3f} ({best_cutoffs[0]*100:.1f}%)")
-    print(f"  中危 ≤ {best_cutoffs[1]:.3f} ({best_cutoffs[1]*100:.1f}%)")
-    print(f"  高危 > {best_cutoffs[1]:.3f}")
-    print(f"  高低危复发率差异: {best_diff:.1f}%")
+    print("\n✓ :")
+    print(f"  Low-risk ≤ {best_cutoffs[0]:.3f} ({best_cutoffs[0]*100:.1f}%)")
+    print(f"  Intermediate-risk ≤ {best_cutoffs[1]:.3f} ({best_cutoffs[1]*100:.1f}%)")
+    print(f"  High-risk > {best_cutoffs[1]:.3f}")
+    print(f"  Differences in recurrence rates between high-risk and low-risk groups: {best_diff:.1f}%")
     
     return results_df, best_cutoffs
 
-# 模型验证器类 (优化版)
+
 class ModelValidator:
     def __init__(self, risk_model, duration_col='time', event_col='FUFA'):
         self.risk_model = risk_model
@@ -303,7 +287,7 @@ class ModelValidator:
         
         c_index = concordance_index(
             df[self.duration_col].values,
-            -risk_scores,  # 注意：lifelines的concordance_index期望风险高的数值小
+            -risk_scores,  
             df[self.event_col].values
         )
         return c_index
@@ -388,7 +372,7 @@ class ModelValidator:
     
     def validate(self, train_df, valid_df=None, eval_times=[12, 24, 36]):
         print("\n" + "=" * 80)
-        print("模型验证分析")
+        print("")
         print("=" * 80)
         
         train_risk_scores = self.risk_model.predict_risk_score(train_df)
@@ -396,18 +380,18 @@ class ModelValidator:
         results = {}
         
         print("\n" + "=" * 80)
-        print("1. 建模队列评估")
+        print("1. ")
         print("=" * 80)
         
         train_cindex = self.bootstrap_c_index(train_df, train_risk_scores)
         print(f"\nC-index: {train_cindex['c_index']:.3f} (95% CI: {train_cindex['ci_lower']:.3f}-{train_cindex['ci_upper']:.3f})")
         
         train_brier = self.calculate_brier_score(train_df, eval_times)
-        print(f"\nBrier Score (均值): {train_brier['mean']:.4f}")
+        print(f"\nBrier Score : {train_brier['mean']:.4f}")
         for t in eval_times:
             col = f'{t}mo'
             if col in train_brier and not np.isnan(train_brier[col]):
-                print(f"  {t}个月: {train_brier[col]:.4f}")
+                print(f"  {t}mouths: {train_brier[col]:.4f}")
         
         results['train'] = {
             'cindex': train_cindex,
@@ -417,7 +401,7 @@ class ModelValidator:
         
         if valid_df is not None:
             print("\n" + "=" * 80)
-            print("2. 验证队列评估")
+            print("2. ")
             print("=" * 80)
             
             valid_risk_scores = self.risk_model.predict_risk_score(valid_df)
@@ -426,11 +410,11 @@ class ModelValidator:
             print(f"\nC-index: {valid_cindex['c_index']:.3f} (95% CI: {valid_cindex['ci_lower']:.3f}-{valid_cindex['ci_upper']:.3f})")
             
             valid_brier = self.calculate_brier_score(valid_df, eval_times)
-            print(f"\nBrier Score (均值): {valid_brier['mean']:.4f}")
+            print(f"\nBrier Score : {valid_brier['mean']:.4f}")
             for t in eval_times:
                 col = f'{t}mo'
                 if col in valid_brier and not np.isnan(valid_brier[col]):
-                    print(f"  {t}个月: {valid_brier[col]:.4f}")
+                    print(f"  {t}mouths: {valid_brier[col]:.4f}")
             
             results['valid'] = {
                 'cindex': valid_cindex,
@@ -440,7 +424,7 @@ class ModelValidator:
         
         return results
 
-# 可视化模块 - 单独生成每个图
+
 def plot_kaplan_meier_single(df, groups, title, suffix, output_dir):
     fig = plt.figure(figsize=(10, 8))
     gs = fig.add_gridspec(2, 1, height_ratios=[4, 1], hspace=0.15)
@@ -469,7 +453,7 @@ def plot_kaplan_meier_single(df, groups, title, suffix, output_dir):
         group_data.append((kmf, group_name, color))
         group_sizes.append(len(group_df))
     
-    # 设置横坐标为24的倍数
+   
     max_time = df['time'].max()
     x_ticks = np.arange(0, max_time + 24, 24)
     ax.set_xticks(x_ticks)
@@ -478,15 +462,15 @@ def plot_kaplan_meier_single(df, groups, title, suffix, output_dir):
     ax.set_xlabel('Follow-up Time (Months)', fontsize=12)
     ax.set_ylabel('Recurrence-free Survival', fontsize=12)
     ax.legend(loc='best', fontsize=10)
-    ax.grid(False)  # 移除网格
+    ax.grid(False)  
     ax.set_xlim(0, max_time)
     ax.set_ylim(0, 1.02)
     
-    # 在下方添加人数表格
+ 
     ax_table.axis('tight')
     ax_table.axis('off')
     
-    # 显示风险组人数
+  
     table_data = []
     row_labels = []
     
@@ -497,7 +481,7 @@ def plot_kaplan_meier_single(df, groups, title, suffix, output_dir):
         events = group_df['FUFA'].sum()
         censored = total - events
         
-        # 对每个时间点估算剩余人数
+      
         remaining_counts = []
         for t in x_ticks:
             try:
@@ -511,19 +495,19 @@ def plot_kaplan_meier_single(df, groups, title, suffix, output_dir):
         table_data.append(remaining_counts)
         row_labels.append(group_name)
     
-    # 创建表格
+  
     if len(table_data) > 0:
-        # 确保数字对齐，设置合适的列宽
+        
         table = ax_table.table(cellText=table_data,
                              rowLabels=row_labels,
                              colLabels=[f'{int(t)}' for t in x_ticks],
                              loc='center',
-                             cellLoc='right')  # 右对齐数字
+                             cellLoc='right')  
         table.auto_set_font_size(False)
         table.set_fontsize(9)
         table.scale(1, 1.5)
         
-        # 设置表格颜色和样式
+        
         for i in range(len(table_data)):
             for j in range(len(x_ticks)):
                 table[(i+1, j)].set_facecolor('white')
@@ -673,26 +657,26 @@ def plot_risk_groups_summary(train_df, valid_df, train_groups, valid_groups, out
     plot_risk_groups_single(train_df, train_groups, 'Training Cohort', 'train', output_dir)
     plot_risk_groups_single(valid_df, valid_groups, 'Validation Cohort', 'valid', output_dir)
 
-# 计算风险组之间的HR值
+
 def calculate_hazard_ratio(df, groups, duration_col='time', event_col='FUFA'):
     """
-    计算风险组之间的HR值（计算所有组合）
+    ）
     """
     hr_results = {}
     
     try:
-        # 将风险组转换为数值编码
+        
         group_mapping = {'Low-risk': 0, 'Moderate-risk': 1, 'High-risk': 2}
         df_analysis = df.copy()
         df_analysis['risk_group_numeric'] = [group_mapping.get(g, -1) for g in groups]
         
-        # 移除无效组
+        
         df_analysis = df_analysis[df_analysis['risk_group_numeric'] != -1]
         
         if len(df_analysis) == 0:
             return hr_results
         
-        # 1. 以低危组为参照，计算中危和高危的HR
+        
         df_low_ref = df_analysis.copy()
         df_low_ref['is_moderate'] = (df_low_ref['risk_group_numeric'] == 1).astype(int)
         df_low_ref['is_high'] = (df_low_ref['risk_group_numeric'] == 2).astype(int)
@@ -717,9 +701,9 @@ def calculate_hazard_ratio(df, groups, duration_col='time', event_col='FUFA'):
                 'p_value': float(cph_low_ref.summary.loc['is_high', 'p'])
             }
         
-        # 2. 以中危组为参照，计算高危的HR
+       
         df_moderate_ref = df_analysis[df_analysis['risk_group_numeric'].isin([1, 2])].copy()
-        if len(df_moderate_ref) >= 2:  # 确保至少有两个数据点
+        if len(df_moderate_ref) >= 2: 
             df_moderate_ref['is_high'] = (df_moderate_ref['risk_group_numeric'] == 2).astype(int)
             
             cph_moderate_ref = CoxPHFitter()
@@ -739,13 +723,13 @@ def calculate_hazard_ratio(df, groups, duration_col='time', event_col='FUFA'):
         
     return hr_results
 
-# 风险分层函数
+
 def apply_risk_stratification(df, risk_scores, best_cutoffs):
     groups = np.where(risk_scores <= best_cutoffs[0], 'Low-risk',
              np.where(risk_scores <= best_cutoffs[1], 'Moderate-risk', 'High-risk'))
     return groups
 
-# 主函数
+
 def main_complete(train_file, valid_file, output_dir=None):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M')
     if output_dir is None:
@@ -828,7 +812,7 @@ def main_complete(train_file, valid_file, output_dir=None):
         except Exception as e:
             print(f"  Calculation failed: {e}")
         
-        # 计算HR值
+        
         print(f"\n{name} Hazard Ratio:")
         hr = calculate_hazard_ratio(df, groups)
         hr_results[name] = hr
@@ -861,10 +845,10 @@ def main_complete(train_file, valid_file, output_dir=None):
     valid_df.to_csv(f'{output_dir}/validation_set_with_risk.csv', index=False, encoding='utf-8-sig')
     print(f"✓ Validation cohort stratified results saved: validation_set_with_risk.csv")
     
-    # 创建详细的summary数据
+    
     summary_metrics = []
     
-    # 基础指标
+    
     summary_metrics.append({'Metric': 'C-index (Training)', 'Value': f"{results['train']['cindex']['c_index']:.3f}"})
     summary_metrics.append({'Metric': 'C-index (Validation)', 'Value': f"{results['valid']['cindex']['c_index']:.3f}" if 'valid' in results else 'N/A'})
     summary_metrics.append({'Metric': 'C-index 95% CI (Training)', 'Value': f"{results['train']['cindex']['ci_lower']:.3f}-{results['train']['cindex']['ci_upper']:.3f}"})
@@ -874,10 +858,10 @@ def main_complete(train_file, valid_file, output_dir=None):
     summary_metrics.append({'Metric': 'Low-risk cutoff', 'Value': f"{best_cutoffs[0]:.3f}"})
     summary_metrics.append({'Metric': 'Moderate-risk cutoff', 'Value': f"{best_cutoffs[1]:.3f}"})
     
-    # 分隔符
+    
     summary_metrics.append({'Metric': '--- Log-rank test ---', 'Value': ''})
     
-    # Log-rank检验结果 - 建模队列
+    
     if 'Training Cohort' in logrank_results:
         for comparison, stats in logrank_results['Training Cohort'].items():
             summary_metrics.append({
@@ -885,7 +869,7 @@ def main_complete(train_file, valid_file, output_dir=None):
                 'Value': f"χ²={stats['chi_sq']:.2f}, p={stats['p_value']:.4f}"
             })
     
-    # Log-rank检验结果 - 验证队列
+    
     if 'Validation Cohort' in logrank_results:
         for comparison, stats in logrank_results['Validation Cohort'].items():
             summary_metrics.append({
@@ -893,10 +877,10 @@ def main_complete(train_file, valid_file, output_dir=None):
                 'Value': f"χ²={stats['chi_sq']:.2f}, p={stats['p_value']:.4f}"
             })
     
-    # 分隔符
+   
     summary_metrics.append({'Metric': '--- Hazard Ratio ---', 'Value': ''})
     
-    # HR结果 - 建模队列
+   
     if 'Training Cohort' in hr_results:
         for comparison, hr_info in hr_results['Training Cohort'].items():
             summary_metrics.append({
@@ -904,7 +888,6 @@ def main_complete(train_file, valid_file, output_dir=None):
                 'Value': f"HR={hr_info['HR']:.2f} (95%CI: {hr_info['HR_lower']:.2f}-{hr_info['HR_upper']:.2f}), p={hr_info['p_value']:.4f}"
             })
     
-    # HR结果 - 验证队列
     if 'Validation Cohort' in hr_results:
         for comparison, hr_info in hr_results['Validation Cohort'].items():
             summary_metrics.append({
@@ -932,8 +915,7 @@ def main_complete(train_file, valid_file, output_dir=None):
     }
 
 if __name__ == "__main__":
-    # 运行完整分析 - 默认使用example.csv，你可以根据需要修改
-    # 注意：你需要提供实际的训练和验证数据文件
+
     result = main_complete(
         train_file='5C_co5.csv',
         valid_file='5C_co6.csv',
